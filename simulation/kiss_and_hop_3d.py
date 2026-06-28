@@ -178,6 +178,33 @@ class Result3D:
             ok = ok & ~same
         return step[ok].ravel()
 
+    def dwell_time_colocalization(self, radius=0.050, rng=None):
+        """Dwell time measured the paper's way: how many consecutive frames a
+        bound localisation stays within `radius` (50 nm) of where it started, on
+        the projected (x, z) image with localisation noise. In dense geometries
+        (spacing < radius) hops to a neighbour stay inside the radius and are
+        merged, so this can over-estimate the true single-MT residence."""
+        p = self.params
+        rng = rng or np.random.default_rng(3)
+        xf = self.frames_x + rng.normal(0, p.loc_precision, self.frames_x.shape)
+        zf = self.frames_z + rng.normal(0, p.loc_precision, self.frames_z.shape)
+        durations = []
+        for i in range(xf.shape[0]):
+            j0 = None
+            for j in range(xf.shape[1]):
+                if not np.isfinite(xf[i, j]):        # free / not visible
+                    if j0 is not None:
+                        durations.append((j - j0) * p.frame_interval); j0 = None
+                    continue
+                if j0 is None:
+                    j0 = j; x0, z0 = xf[i, j], zf[i, j]
+                elif (xf[i, j] - x0) ** 2 + (zf[i, j] - z0) ** 2 > radius ** 2:
+                    durations.append((j - j0) * p.frame_interval)
+                    j0 = j; x0, z0 = xf[i, j], zf[i, j]
+            if j0 is not None:
+                durations.append((xf.shape[1] - j0) * p.frame_interval)
+        return np.asarray([d for d in durations if d > 0])
+
 
 def simulate3d(params: Params3D | None = None, **overrides) -> Result3D:
     p = params or Params3D(**overrides)

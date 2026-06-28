@@ -163,6 +163,29 @@ binding sites is folded into the measured pseudo-first-order on-rate
 
 ---
 
+## Cross-validation: PC12 → axon, no re-tuning (`run_crossval.py`)
+
+`simulation/run_crossval.py` keeps the tau **molecular** parameters exactly as
+calibrated on PC12 neurites (`p_on`, `koff = 1/40 ms`) and changes **only the
+geometry** to that of a cortical axon, where MTs are packed much more tightly
+(~20 nm edge-to-edge; Hirokawa) than in PC12 (~70 nm). Nothing is re-fit. Two
+predictions are then compared with the independent axon data (`fig7`):
+
+* **(A) The dwell time transfers.** Because the dwell is a *molecular* property
+  (set by `koff`), the model predicts the same ~40 ms in both systems. The PC12
+  and axon residence-time survival curves lie on top of each other (model
+  τ ≈ 37 ms), matching the **independently measured 39 ± 4 ms (PC12) and
+  36 ± 5 ms (axons)**. The non-trivial content is that the dwell is predicted to
+  be geometry-*independent*, and the data agree.
+* **(B) The hops become unresolvable in axons.** The median inter-MT hop shrinks
+  with the spacing and, toward the axonal ~20 nm, sinks into the ~20 nm
+  localisation-precision / noise floor. This is exactly why the paper could do
+  the step-size-distribution analysis in PC12 neurites but reported only dwell
+  times for axons — the model reproduces that methodological limit, it was not
+  put in by hand.
+
+---
+
 ## Is ~99 % bound real, or just tuned? (`first_principles_check.py`)
 
 The one tuned parameter (`p_on` → k\*on/koff) was fit so the simulated SSD/bound
@@ -243,6 +266,8 @@ simulation/kiss_and_hop.py        2D MC engine (Params, simulate, Result)
 simulation/kiss_and_hop_3d.py     exact 3D MC engine (paper geometry, dt = 1 us)
 simulation/run_experiments.py     reproduces fig1-fig5 + writes data/summary.json
 simulation/run_experiments_3d.py  reproduces the exact-3D figure (fig6)
+simulation/run_crossval.py        PC12 -> axon cross-validation (fig7)
+simulation/first_principles_check.py  independent k*on/koff from Kd + anatomy
 figures/                          generated PNGs
 data/                             generated CSV + summary.json
 index.html                        interactive in-browser simulation (GitHub Pages)
