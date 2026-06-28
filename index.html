@@ -1,4 +1,290 @@
-<html> 
-<h1> This is my first page with GitHub Pages </h1>
-<p>Thanks GitHub!</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tau kiss-and-hop &mdash; interactive Monte Carlo</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#1b2430; --ink:#e6edf3; --muted:#9fb0c0;
+    --blue:#4aa3ff; --red:#ff6b6b; --green:#56d364; --line:#2d3a48;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{margin:0;font-size:20px}
+  header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+  header a{color:var(--blue)}
+  .wrap{display:grid;grid-template-columns:1fr 320px;gap:18px;padding:18px 22px;
+        max-width:1180px}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}}
+  canvas{background:#0a0e13;border:1px solid var(--line);border-radius:8px;
+         width:100%;display:block}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+         padding:14px 16px}
+  .panel h2{margin:0 0 10px;font-size:13px;text-transform:uppercase;
+            letter-spacing:.06em;color:var(--muted)}
+  .ctrl{margin:12px 0}
+  .ctrl label{display:flex;justify-content:space-between;font-size:13px}
+  .ctrl label b{color:var(--blue);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--blue)}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+  .stat{background:#0a0e13;border:1px solid var(--line);border-radius:6px;
+        padding:8px 10px}
+  .stat .v{font-size:18px;font-variant-numeric:tabular-nums}
+  .stat .k{font-size:11px;color:var(--muted)}
+  .btns{display:flex;gap:8px;margin-top:10px}
+  button{flex:1;background:#243140;color:var(--ink);border:1px solid var(--line);
+         border-radius:6px;padding:8px;cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--blue)}
+  .legend{display:flex;gap:16px;margin:8px 0 0;font-size:12px;color:var(--muted)}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;
+       vertical-align:middle;margin-right:5px}
+  footer{padding:10px 22px 30px;color:var(--muted);font-size:12px}
+  code{background:#0a0e13;padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Tau &ldquo;kiss-and-hop&rdquo; on microtubules &mdash; live Monte Carlo</h1>
+  <p>Reconstruction of Janning&nbsp;et&nbsp;al. (2014)
+     <a href="https://doi.org/10.1091/mbc.e14-06-1099" target="_blank" rel="noopener">
+     <em>Single-molecule tracking of tau reveals fast kiss-and-hop interaction
+     with microtubules in living neurons</em></a>, Mol&nbsp;Biol&nbsp;Cell&nbsp;25:3541.
+     Each tau molecule binds a microtubule, dwells ~40&nbsp;ms, then hops to the next.</p>
+</header>
+
+<div class="wrap">
+  <div>
+    <canvas id="scene" width="820" height="420"></canvas>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--blue)"></span>free (diffusing)</span>
+      <span><span class="dot" style="background:var(--red)"></span>bound to MT</span>
+      <span><span class="dot" style="background:#3a4a5a"></span>microtubule</span>
+    </div>
+    <canvas id="hist" width="820" height="170" style="margin-top:14px"></canvas>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h2>Parameters</h2>
+      <div class="ctrl">
+        <label>Dwell time &tau;<sub>d</sub> <b><span id="vDwell">40</span> ms</b></label>
+        <input id="dwell" type="range" min="5" max="200" value="40" step="1">
+      </div>
+      <div class="ctrl">
+        <label>MT spacing <b><span id="vSpace">120</span> nm</b></label>
+        <input id="space" type="range" min="40" max="400" value="120" step="5">
+      </div>
+      <div class="ctrl">
+        <label>Free diffusion D<sub>free</sub> <b><span id="vD">20</span> &micro;m&sup2;/s</b></label>
+        <input id="dfree" type="range" min="2" max="50" value="20" step="1">
+      </div>
+      <div class="ctrl">
+        <label>On-rate (capture prob.) <b><span id="vPbind">1.00</span></b></label>
+        <input id="pbind" type="range" min="0.02" max="1" value="1" step="0.02">
+      </div>
+      <div class="ctrl">
+        <label>Molecules <b><span id="vN">120</span></b></label>
+        <input id="nmol" type="range" min="20" max="400" value="120" step="10">
+      </div>
+      <div class="btns">
+        <button id="play">Pause</button>
+        <button id="reset">Reset stats</button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:14px">
+      <h2>Live observables</h2>
+      <div class="stats">
+        <div class="stat"><div class="v" id="sBound">&ndash;</div><div class="k">bound fraction</div></div>
+        <div class="stat"><div class="v" id="sRes">&ndash;</div><div class="k">mean residence (ms)</div></div>
+        <div class="stat"><div class="v" id="sAssoc">&ndash;</div><div class="k">mean association (ms)</div></div>
+        <div class="stat"><div class="v" id="sDeff">&ndash;</div><div class="k">D<sub>eff</sub> &asymp; (1&minus;f<sub>b</sub>)D<sub>free</sub></div></div>
+      </div>
+      <p style="color:var(--muted);font-size:12px;margin:10px 0 0">
+        The histogram below collects single-MT residence times. It is a
+        <b style="color:var(--green)">single exponential</b> with mean&nbsp;&tau;<sub>d</sub>
+        &mdash; the central result of the paper.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Full quantitative reconstruction (residence distribution, bound fraction, FDAP,
+  MSD / effective diffusion) is in <code>simulation/</code>; figures in
+  <code>figures/</code>. Model &amp; assumptions: see <code>README.md</code>.
+</footer>
+
+<script>
+// ---- model in simulation units: micrometres (um) and seconds (s) -----------
+const scene = document.getElementById('scene');
+const sctx  = scene.getContext('2d');
+const hist  = document.getElementById('hist');
+const hctx  = hist.getContext('2d');
+
+// the visible neurite window (um). x = along axis, y = transverse.
+const WIN_X = 4.0;            // um shown horizontally
+let   WIN_Y = scene.height / scene.width * WIN_X;  // keep aspect
+
+const P = {
+  tauDwell: 0.040,           // s
+  spacing : 0.120,           // um
+  Dfree   : 20.0,            // um^2/s
+  Dbound  : 0.10,            // um^2/s
+  pbind   : 1.0,
+  capture : 0.025,           // um
+  n       : 120,
+  dt      : 5e-5,            // s per sub-step
+  subSteps: 12               // sub-steps per animation frame
+};
+
+let mols = [];
+let mtY  = [];               // transverse MT positions (um)
+let running = true;
+
+// running statistics
+let stat = {boundSum:0, boundCnt:0, resTimes:[], assocTimes:[]};
+
+function buildMTs(){
+  mtY = [];
+  for(let y = P.spacing/2; y < WIN_Y; y += P.spacing) mtY.push(y);
+}
+function nearestMT(y){
+  let best=0, bd=1e9;
+  for(let i=0;i<mtY.length;i++){const d=Math.abs(y-mtY[i]); if(d<bd){bd=d;best=i;}}
+  return {i:best, y:mtY[best], d:bd};
+}
+function gauss(s){ // Box-Muller
+  let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random();
+  return s*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+function spawn(){
+  mols = [];
+  for(let k=0;k<P.n;k++){
+    mols.push({x:Math.random()*WIN_X, y:Math.random()*WIN_Y,
+               bound:false, mt:-1, forbidden:-1, t0:0});
+  }
+}
+function reset(){ buildMTs(); spawn();
+  stat={boundSum:0,boundCnt:0,resTimes:[],assocTimes:[]}; tNow=0; }
+
+let tNow = 0;
+function step(){
+  const sFree  = Math.sqrt(2*P.Dfree *P.dt);
+  const sBound = Math.sqrt(2*P.Dbound*P.dt);
+  const pRel   = 1 - Math.exp(-P.dt/P.tauDwell);
+  let boundNow = 0;
+
+  for(const m of mols){
+    if(m.bound){
+      m.x += gauss(sBound);
+      if(Math.random() < pRel){
+        stat.resTimes.push((tNow - m.t0)*1e3);
+        if(stat.resTimes.length>4000) stat.resTimes.shift();
+        m.bound=false; m.forbidden=m.mt; m.t0=tNow;
+      } else boundNow++;
+    } else {
+      m.x += gauss(sFree); m.y += gauss(sFree);
+      if(m.y<0)m.y=-m.y; if(m.y>WIN_Y)m.y=2*WIN_Y-m.y;   // reflect
+      const nm = nearestMT(m.y);
+      if(m.forbidden>=0 && nm.d>=P.capture) m.forbidden=-1;
+      if(nm.d<P.capture && nm.i!==m.forbidden && Math.random()<P.pbind){
+        stat.assocTimes.push((tNow - m.t0)*1e3);
+        if(stat.assocTimes.length>4000) stat.assocTimes.shift();
+        m.bound=true; m.mt=nm.i; m.y=nm.y; m.forbidden=-1; m.t0=tNow;
+        boundNow++;
+      }
+    }
+    // wrap longitudinally so molecules stay on screen
+    if(m.x<0)m.x+=WIN_X; if(m.x>WIN_X)m.x-=WIN_X;
+  }
+  stat.boundSum += boundNow/mols.length; stat.boundCnt++;
+  tNow += P.dt;
+}
+
+// ---- drawing ---------------------------------------------------------------
+function px(x){return x/WIN_X*scene.width;}
+function py(y){return y/WIN_Y*scene.height;}
+function drawScene(){
+  sctx.clearRect(0,0,scene.width,scene.height);
+  sctx.strokeStyle='#3a4a5a'; sctx.lineWidth=2;
+  for(const y of mtY){const Y=py(y);
+    sctx.beginPath();sctx.moveTo(0,Y);sctx.lineTo(scene.width,Y);sctx.stroke();}
+  for(const m of mols){
+    sctx.beginPath();
+    sctx.arc(px(m.x),py(m.y), m.bound?3.2:2.6, 0, 2*Math.PI);
+    sctx.fillStyle = m.bound ? '#ff6b6b' : '#4aa3ff';
+    sctx.fill();
+  }
+}
+function mean(a){return a.length? a.reduce((s,v)=>s+v,0)/a.length : NaN;}
+function drawHist(){
+  hctx.clearRect(0,0,hist.width,hist.height);
+  const data=stat.resTimes; if(data.length<5)return;
+  const tau=mean(data); const xmax=Math.max(5*tau, 50);
+  const nb=40, bins=new Array(nb).fill(0);
+  for(const v of data){const b=Math.min(nb-1,Math.floor(v/xmax*nb)); bins[b]++;}
+  const bw=hist.width/nb, ymax=Math.max(...bins);
+  // bars
+  for(let b=0;b<nb;b++){
+    const h=bins[b]/ymax*(hist.height-26);
+    hctx.fillStyle='rgba(74,163,255,0.55)';
+    hctx.fillRect(b*bw+1, hist.height-20-h, bw-2, h);
+  }
+  // exponential overlay
+  hctx.strokeStyle='#56d364'; hctx.lineWidth=2; hctx.beginPath();
+  const A=ymax;
+  for(let p=0;p<=nb;p++){
+    const v=p/nb*xmax, yval=A*Math.exp(-v/tau);
+    const X=p*bw, Y=hist.height-20-yval/ymax*(hist.height-26);
+    p?hctx.lineTo(X,Y):hctx.moveTo(X,Y);
+  }
+  hctx.stroke();
+  hctx.fillStyle='#9fb0c0'; hctx.font='12px sans-serif';
+  hctx.fillText('residence time (ms)  —  0 to '+xmax.toFixed(0)+' ms', 8, 14);
+  hctx.fillText('single-exp, τ = '+tau.toFixed(1)+' ms', hist.width-180, 14);
+}
+
+function updateStats(){
+  const fb = stat.boundCnt? stat.boundSum/stat.boundCnt : NaN;
+  const res= mean(stat.resTimes), as=mean(stat.assocTimes);
+  const Deff=(1-fb)*P.Dfree + fb*P.Dbound;
+  document.getElementById('sBound').textContent = isNaN(fb)?'–':fb.toFixed(3);
+  document.getElementById('sRes').textContent   = isNaN(res)?'–':res.toFixed(1);
+  document.getElementById('sAssoc').textContent = isNaN(as)?'–':as.toFixed(2);
+  document.getElementById('sDeff').textContent  = isNaN(Deff)?'–':Deff.toFixed(2);
+}
+
+function frame(){
+  if(running){ for(let s=0;s<P.subSteps;s++) step(); }
+  drawScene(); drawHist(); updateStats();
+  requestAnimationFrame(frame);
+}
+
+// ---- controls --------------------------------------------------------------
+function bind(id, key, scale, fmt, after){
+  const el=document.getElementById(id);
+  const lbl={dwell:'vDwell',space:'vSpace',dfree:'vD',pbind:'vPbind',nmol:'vN'}[id];
+  const span=document.getElementById(lbl);
+  el.addEventListener('input',()=>{
+    P[key]=parseFloat(el.value)*scale; span.textContent=fmt(parseFloat(el.value));
+    if(after) after();
+  });
+}
+bind('dwell','tauDwell',1e-3,v=>v.toFixed(0));
+bind('space','spacing',1e-3,v=>v.toFixed(0),()=>reset());
+bind('dfree','Dfree',1,v=>v.toFixed(0));
+bind('pbind','pbind',1,v=>v.toFixed(2));
+bind('nmol','n',1,v=>v.toFixed(0),()=>spawn());
+
+document.getElementById('play').addEventListener('click',e=>{
+  running=!running; e.target.textContent=running?'Pause':'Play';});
+document.getElementById('reset').addEventListener('click',()=>reset());
+
+reset();
+requestAnimationFrame(frame);
+</script>
+</body>
 </html>

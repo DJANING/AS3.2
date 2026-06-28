@@ -1,0 +1,25 @@
+{
+  "paper": "Janning et al. 2014, Mol Biol Cell 25:3541 (doi:10.1091/mbc.e14-06-1099)",
+  "inputs": {
+    "tau_dwell_ms": 40.0,
+    "D_free_um2_s": 20.0,
+    "D_bound_um2_s": 0.1,
+    "mt_spacing_um": 0.3,
+    "capture_radius_um": 0.025,
+    "process_width_um": 1.5,
+    "n_molecules": 2500,
+    "total_time_s": 1.0,
+    "dt_s": 2e-05
+  },
+  "residence_mean_ms": 38.36652373514736,
+  "residence_observed_ms": 41.45123154543593,
+  "residence_events": 62081,
+  "bound_fraction": 0.9930033333333333,
+  "bound_fraction_analytic": 0.9930019582607564,
+  "mean_free_time_ms": 0.28189437819440183,
+  "fdap_window_um": 1.3746309139805508,
+  "D_eff_from_fdap": 0.2505801836243581,
+  "D_eff_from_msd": 0.23631942792283692,
+  "D_short_time": 0.23902610375136796,
+  "bound_fraction_matching_measured_Deff": 0.3065326633165829
+}

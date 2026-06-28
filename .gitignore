@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node (only used locally to screenshot the web app)
+node_modules/
+package-lock.json
+package.json
+
+# OS
+.DS_Store
