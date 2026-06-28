@@ -163,6 +163,39 @@ binding sites is folded into the measured pseudo-first-order on-rate
 
 ---
 
+## Is ~99 % bound real, or just tuned? (`first_principles_check.py`)
+
+The one tuned parameter (`p_on` → k\*on/koff) was fit so the simulated SSD/bound
+fraction match the paper. To test whether the **~99 %-bound** conclusion is an
+artefact of that tuning, `simulation/first_principles_check.py` derives k\*on/koff
+**independently** — from quantities measured in *separate* experiments, without
+the simulation or the SSD:
+
+* `kon = koff/Kd` with **Kd = 110 nM** (Butner &amp; Kirschner 1991) and
+  **koff = 1/40 ms = 25 s⁻¹** → `kon ≈ 2.3×10⁸ M⁻¹s⁻¹` (diffusion-limited range ✓);
+* microtubule binding-site concentration from the **anatomy** (60 MTs, 13
+  protofilaments, 8 nm dimer rise, R = 500 nm) → [tubulin] ≈ **206 µM**, so
+  [sites] ≈ 8–200 µM depending on stoichiometry;
+* `k*on/koff = [sites]/Kd`.
+
+Result: across every reasonable stoichiometry (1 tau per 1–13 dimers),
+
+| stoichiometry | [sites] | k\*on/koff | f_bound |
+|---|---|---|---|
+| 1:1 | 196 µM | 1780 | 0.9994 |
+| 1:5 | 31 µM | 281 | 0.9965 |
+| 1:13 | 7.9 µM | 72 | 0.9863 |
+
+The independent estimate (k\*on/koff ≈ 70–1800) **brackets the tuned value (~100)**
+and robustly gives **f_bound ≥ 99 %**. The reason is the inequality
+`k*on (~10³–10⁴ s⁻¹) ≫ koff (25 s⁻¹)`, which holds regardless of the (large)
+uncertainty in k\*on. **So ~99 % bound is forced by Kd ≪ [sites] — an independent
+biophysical consequence, not an artefact of tuning.** What is *not* pinned down is
+the association *time* (~0.1–2 ms): this is where the simulation (~0.4 ms) and
+Igaev 2014 (~2 ms) genuinely differ, and it does not affect the bound fraction.
+
+---
+
 ## Parameters (from the papers)
 
 | Symbol | Name | Value | Source |
