@@ -146,6 +146,21 @@ The single-exponential ~40 ms dwell, the ~99 % bound fraction and
 k\*on/koff ≈ 100 are reproduced exactly. The idealised 2D SSD (`fig3`) is kept as
 the didactic version where the hop peaks sit cleanly at multiples of the spacing.
 
+**Sparse single-molecule labelling (HaloTag–TMR).** Halo-tau was labelled with a
+low dose of TMR-HTL (1–5 nM, 15 min), i.e. only a sparse **subset** of the tau
+pool is fluorescent. This is a *sampling* method, not a kinetic perturbation:
+the HaloTag reaction is covalent and independent of tau's binding state, so a
+labelled molecule is kinetically identical to an unlabelled one. It therefore
+changes only the *number* of trajectories, not the shape of the dwell/SSD
+distributions — verified here: subsampling the simulated particles to 10 % or
+5 % leaves the SSD mean/median unchanged (≈72/54 nm) within counting noise. Its
+real purpose is to keep spots optically separable so the tracker never mis-links
+two different molecules; the simulation already operates in that limit because it
+tracks every molecule's identity exactly (the 50 nm-colocalisation dwell is thus
+artefact-free). The competition of the full, mostly-unlabelled tau pool for
+binding sites is folded into the measured pseudo-first-order on-rate
+(k\*on/koff ≈ 100) that the simulation is calibrated to.
+
 ---
 
 ## Parameters (from the papers)
