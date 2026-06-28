@@ -74,16 +74,16 @@
         <input id="dwell" type="range" min="5" max="200" value="40" step="1">
       </div>
       <div class="ctrl">
-        <label>MT spacing <b><span id="vSpace">120</span> nm</b></label>
-        <input id="space" type="range" min="40" max="400" value="120" step="5">
+        <label>MT spacing <b><span id="vSpace">70</span> nm</b></label>
+        <input id="space" type="range" min="40" max="400" value="70" step="5">
       </div>
       <div class="ctrl">
-        <label>Free diffusion D<sub>free</sub> <b><span id="vD">20</span> &micro;m&sup2;/s</b></label>
-        <input id="dfree" type="range" min="2" max="50" value="20" step="1">
+        <label>Free diffusion D<sub>free</sub> <b><span id="vD">14</span> &micro;m&sup2;/s</b></label>
+        <input id="dfree" type="range" min="2" max="50" value="14" step="1">
       </div>
       <div class="ctrl">
-        <label>On-rate (capture prob.) <b><span id="vPbind">1.00</span></b></label>
-        <input id="pbind" type="range" min="0.02" max="1" value="1" step="0.02">
+        <label>On-rate (capture prob.) <b><span id="vPbind">0.08</span></b></label>
+        <input id="pbind" type="range" min="0.02" max="1" value="0.08" step="0.02">
       </div>
       <div class="ctrl">
         <label>Molecules <b><span id="vN">120</span></b></label>
@@ -129,12 +129,12 @@ const WIN_X = 4.0;            // um shown horizontally
 let   WIN_Y = scene.height / scene.width * WIN_X;  // keep aspect
 
 const P = {
-  tauDwell: 0.040,           // s
-  spacing : 0.120,           // um
-  Dfree   : 20.0,            // um^2/s
-  Dbound  : 0.10,            // um^2/s
-  pbind   : 1.0,
-  capture : 0.025,           // um
+  tauDwell: 0.040,           // s     ~40 ms dwell (Janning 2014)
+  spacing : 0.070,           // um    ~70 nm MT spacing in PC12 neurites
+  Dfree   : 14.4,            // um^2/s free PAGFP-htau diffusion
+  Dbound  : 0.0,             // um^2/s bound tau ~immobile in vivo
+  pbind   : 0.08,            // on-rate -> k*on/koff ~ 100 (~99% bound)
+  capture : 0.0125,          // um     MT radius ~12.5 nm
   n       : 120,
   dt      : 5e-5,            // s per sub-step
   subSteps: 12               // sub-steps per animation frame

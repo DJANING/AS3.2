@@ -64,22 +64,30 @@ import numpy as np
 @dataclass
 class Params:
     # --- kinetics ------------------------------------------------------------
+    # Defaults are the values used in Janning et al. (2014).
     tau_dwell: float = 0.040      # s   mean residence time on a single MT (~40 ms)
-    D_free: float = 20.0          # um^2/s  cytoplasmic diffusion of free tau
-    D_bound: float = 0.10         # um^2/s  sliding/piggyback diffusion while bound
+    D_free: float = 14.4          # um^2/s  diffusion of free PAGFP-htau
+                                  #      (Janning 2014, Materials and Methods)
+    D_bound: float = 0.0          # um^2/s  bound tau is ~immobile in vivo
+                                  #      (Igaev 2014: bound diffusion negligible)
     p_bind: float = 1.0           # binding probability per step inside capture zone
-                                  # (1.0 = diffusion-limited capture)
+                                  # (the on-rate knob; 1.0 = diffusion-limited).
+                                  # Lowering it lowers k*on/koff and the bound
+                                  # fraction (Fig. 3B varies k*on/koff).
 
     # --- geometry ------------------------------------------------------------
-    mt_spacing: float = 0.30      # um   transverse centre-to-centre MT spacing
-                                  #      (~11 MTs/um^2 -> moderately dense axon;
-                                  #       set ~0.10 for a densely packed axon)
-    process_width: float = 1.5    # um   transverse extent of the process
-    capture_radius: float = 0.025 # um   reach of tau to bind an MT (~25 nm)
+    mt_spacing: float = 0.070     # um   average MT centre-to-centre spacing in
+                                  #      PC12 neurites (Janning 2014; ~70 nm)
+    process_width: float = 1.0    # um   transverse extent of the process
+    capture_radius: float = 0.0125  # um  MT radius (~12.5 nm); tau binds on contact
+
+    # --- imaging (for SSD / dwell reconstruction) ----------------------------
+    frame_interval: float = 0.005   # s   camera frame time (~5 ms)
+    loc_precision: float = 0.020    # um  single-molecule localisation precision (~20 nm)
 
     # --- integration ---------------------------------------------------------
-    dt: float = 2.0e-5            # s    time step (must be << tau_dwell and
-                                  #      << crossing time of a gap)
+    dt: float = 1.0e-5            # s    time step (must be << tau_dwell and
+                                  #      << gap-crossing time; paper used 1 us)
     n_molecules: int = 2000
     total_time: float = 0.5       # s    simulated trajectory length
     record_stride: int = 25       # store the trajectory every Nth step
@@ -108,6 +116,7 @@ class Result:
     params: Params
     t: np.ndarray                 # (n_rec,) time axis of recorded frames
     x: np.ndarray                 # (n_molecules, n_rec) longitudinal position
+    y: np.ndarray                 # (n_molecules, n_rec) transverse position
     bound: np.ndarray             # (n_molecules, n_rec) bool, bound state
     dt_record: float              # time between recorded frames (= dt * stride)
     residence_times: np.ndarray   # 1D, durations of completed bound intervals (s)
@@ -120,6 +129,72 @@ class Result:
         # discard the first 10% as burn-in towards the stationary state
         burn = self.bound.shape[1] // 10
         return float(self.bound[:, burn:].mean())
+
+    @property
+    def kon_koff(self) -> float:
+        """Pseudo-equilibrium constant k*on/koff = f_bound / (1 - f_bound).
+
+        Janning et al. (2014) report that the simulated SSD matches the data at
+        k*on/koff ~ 10^2, implying ~99% of tau bound.
+        """
+        fb = self.bound_fraction
+        return fb / max(1e-9, 1.0 - fb)
+
+    def step_size_distribution(self, rng=None, hops_only=False):
+        """Single-molecule step-size distribution (SSD), as in Janning Fig. 3.
+
+        Pseudotrajectories are sampled at the camera frame interval with
+        Gaussian localisation noise; the distribution of first-step
+        displacements |r(t+dt) - r(t)| reveals discrete peaks at multiples of
+        the MT spacing -- the signature of hopping between microtubules.
+        Returns the 1-D array of step sizes in micrometres.
+
+        If `hops_only` is True, only steps in which the molecule changed the
+        microtubule it is nearest to are kept (i.e. genuine inter-MT jumps),
+        which isolates the hop peaks from the localisation-noise peak.
+        """
+        p = self.params
+        rng = rng or np.random.default_rng(7)
+        # frames spaced by the camera interval out of the recorded trajectory
+        fstride = max(1, int(round(p.frame_interval / self.dt_record)))
+        xf = self.x[:, ::fstride]
+        yf = self.y[:, ::fstride]
+        # add localisation noise to each (x, y) localisation
+        xn = xf + rng.normal(0.0, p.loc_precision, size=xf.shape)
+        yn = yf + rng.normal(0.0, p.loc_precision, size=yf.shape)
+        # first-step displacement of every (shortened) pseudotrajectory
+        dx = xn[:, 1:] - xn[:, :-1]
+        dy = yn[:, 1:] - yn[:, :-1]
+        step = np.sqrt(dx * dx + dy * dy)
+        if hops_only:
+            mt = np.round(yf / p.mt_spacing)            # noise-free MT index
+            moved = mt[:, 1:] != mt[:, :-1]
+            return step[moved].ravel()
+        return step.ravel()
+
+    def dwell_time_colocalization(self, radius=0.050):
+        """Dwell time measured the way the paper does it (Fig. 4 / Methods):
+
+        count how many consecutive frames a localised signal stays within
+        `radius` (default 50 nm) of where it was, and fit the resulting
+        frequency histogram to a single exponential. Returns (durations_s,).
+        """
+        p = self.params
+        fstride = max(1, int(round(p.frame_interval / self.dt_record)))
+        xf = self.x[:, ::fstride]
+        yf = self.y[:, ::fstride]
+        durations = []
+        for i in range(xf.shape[0]):
+            x0, y0 = xf[i, 0], yf[i, 0]
+            run = 1
+            for j in range(1, xf.shape[1]):
+                if (xf[i, j] - x0) ** 2 + (yf[i, j] - y0) ** 2 <= radius ** 2:
+                    run += 1
+                else:
+                    durations.append(run * p.frame_interval)
+                    x0, y0, run = xf[i, j], yf[i, j], 1
+            durations.append(run * p.frame_interval)
+        return np.asarray(durations)
 
     def msd(self, max_lag_frac: float = 0.25):
         """Ensemble mean-squared displacement of the longitudinal coordinate.
@@ -181,6 +256,7 @@ def simulate(params: Params | None = None, **overrides) -> Result:
     rec_idx = np.arange(0, steps, stride)
     n_rec = rec_idx.size
     x_traj = np.empty((n, n_rec), dtype=np.float32)
+    y_traj = np.empty((n, n_rec), dtype=np.float32)
     bound_traj = np.empty((n, n_rec), dtype=bool)
     rec_ptr = 0
 
@@ -239,6 +315,7 @@ def simulate(params: Params | None = None, **overrides) -> Result:
 
         if s % stride == 0:
             x_traj[:, rec_ptr] = x
+            y_traj[:, rec_ptr] = y
             bound_traj[:, rec_ptr] = bound
             rec_ptr += 1
         t += dt
@@ -251,6 +328,7 @@ def simulate(params: Params | None = None, **overrides) -> Result:
         params=p,
         t=rec_idx[:rec_ptr] * dt,
         x=x_traj[:, :rec_ptr],
+        y=y_traj[:, :rec_ptr],
         bound=bound_traj[:, :rec_ptr],
         dt_record=dt * stride,
         residence_times=res,
@@ -265,5 +343,9 @@ if __name__ == "__main__":
           f"(input tau_dwell = {1e3*r.params.tau_dwell:.0f} ms)")
     print(f"mean free time   : {1e3*r.free_times.mean():.2f} ms")
     print(f"bound fraction   : {r.bound_fraction:.3f}")
+    print(f"k*on/koff        : {r.kon_koff:.0f}  (paper: ~100 -> 99% bound)")
     print(f"effective D      : {r.effective_diffusion():.2f} um^2/s "
           f"(D_free = {r.params.D_free} um^2/s)")
+    ss = r.step_size_distribution() * 1e3
+    print(f"SSD steps        : {ss.size}, median {np.median(ss):.0f} nm "
+          f"(MT spacing = {r.params.mt_spacing*1e3:.0f} nm)")
