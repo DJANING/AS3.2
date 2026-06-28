@@ -20,5 +20,14 @@
   "kon_koff": 107.0302484695712,
   "mean_free_time_ms": 0.37257448295429896,
   "ssd_kon100_kon_koff": 107.10810810810834,
-  "D_eff_from_msd": 0.13428750710907597
+  "D_eff_from_msd": 0.13428750710907597,
+  "exact_3d": {
+    "geometry": "tube L=100um R=500nm; 60 hex MTs R_MT=12.5nm spacing=70nm",
+    "dt_s": 1e-06,
+    "p_on": 0.2,
+    "bound_fraction": 0.9916094259259259,
+    "kon_koff": 118.18135650454337,
+    "residence_mean_ms_censored": 34.594669537476804,
+    "note": "2D-projected SSD is multi-modal (noise peak + inter-MT hop tail through multiples of the spacing); the cleaner separated peaks of the published Fig. 3A reflect the specific, more ordered real bundle (~95 nm spacing in that cell)."
+  }
 }

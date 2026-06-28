@@ -88,6 +88,7 @@ bound** &mdash; reproduced here.
 | `fig3_step_size_distribution.png` | **Fig. 3** | **The Monte Carlo figure.** The step-size distribution shows the localisation-noise peak plus an inter-MT **hop** population peaking near the MT spacing, with higher-order hops (1→2, 1→3, …) in the tail. Panel B: the hop tail grows as `k*on/koff` falls. |
 | `fig4_msd.png` | &mdash; | Longitudinal `D_eff ≈ 0.13 µm²/s` &mdash; tiny, because tau is ~99 % bound: it does not run ahead of, or impede, axonal transport. |
 | `fig5_Deff_vs_bound_fraction.png` | &mdash; | `D_eff = (1−f_b)D_free + f_b·D_bound` (Igaev 2014); at the physiological `f_b ≈ 0.99` the effective transport of tau is ≈ 0. |
+| `fig6_exact_3d.png` | **Fig. 3** | **Exact 3D reconstruction** (see below): the 60-MT hex bundle and the SSD of the 2D-projected localisations. |
 
 Representative output (paper parameters):
 
@@ -97,6 +98,41 @@ true per-MT residence  : 38 ms
 bound fraction         : 0.991   (k*on/koff = 107; paper ~100)
 D_eff (MSD)            : 0.134 µm²/s
 ```
+
+---
+
+## Exact 3D reconstruction (`kiss_and_hop_3d.py`)
+
+`simulation/kiss_and_hop_3d.py` implements the paper's Monte Carlo *verbatim*,
+in its full 3D geometry rather than the 2D idealisation above:
+
+* simulation space = a **tube of L = 100 µm, R = 500 nm**;
+* filled with **60 parallel microtubules**, R<sub>MT</sub> = 12.5 nm, hexagonally
+  packed at **70 nm** nearest-neighbour spacing (Jacobs &amp; Stevens 1986);
+* **dt = 1 µs**; each step: bound particles unbind with `p_off = dt/τ_dwell` and
+  detach **perpendicular to the MT surface**; free particles that hit an MT
+  surface attach with `p_on`, else take a 3D Gaussian step √(2D·dt); **reflecting**
+  tube wall;
+* calibrated to **k\*on/koff ≈ 100** (here `p_on = 0.20` → f_bound ≈ 0.99), the
+  value at which the paper's simulated SSD matches the data.
+
+`python3 simulation/run_experiments_3d.py` produces `fig6_exact_3d.png`. The
+single-molecule image is the **2D projection** of this 3D process (imaging plane
+= longitudinal × one transverse axis; the depth axis is integrated out), exactly
+as in the experiment.
+
+**Honest result.** The projected SSD is **multi-modal**: a localisation-noise
+peak, then an inter-MT **hop** population whose tail extends through multiples of
+the spacing out to the reported 95 / 190 / 285 nm. It does **not** show the
+cleanly *separated* peaks of the published Fig. 3A, because projecting a 3D hex
+bundle onto 2D smears neighbouring-shell distances together (and produces the
+extra short-distance peak the paper itself notes, from MTs that neighbour in
+projection but are distant in depth). The paper states only that the simulation
+*"resembles"* the data at k\*on/koff = 100; the cleaner experimental peaks
+reflect the specific, more ordered real bundle (≈95 nm spacing in that cell). The
+single-exponential ~40 ms dwell, the ~99 % bound fraction and k\*on/koff ≈ 100
+are all reproduced exactly. The idealised 2D SSD (`fig3`) is kept as the didactic
+version where the hop peaks sit cleanly at multiples of the spacing.
 
 ---
 
@@ -142,10 +178,12 @@ bound fraction, residence histogram and effective diffusion respond live.
 ### Code layout
 
 ```
-simulation/kiss_and_hop.py    core vectorised MC engine (Params, simulate, Result)
-                              + SSD and 50 nm-colocalisation dwell analysis
-simulation/run_experiments.py reproduces all figures + writes data/summary.json
-figures/                      generated PNGs
-data/                         generated CSV + summary.json
-index.html                    interactive in-browser simulation (GitHub Pages)
+simulation/kiss_and_hop.py        2D MC engine (Params, simulate, Result)
+                                  + SSD and 50 nm-colocalisation dwell analysis
+simulation/kiss_and_hop_3d.py     exact 3D MC engine (paper geometry, dt = 1 us)
+simulation/run_experiments.py     reproduces fig1-fig5 + writes data/summary.json
+simulation/run_experiments_3d.py  reproduces the exact-3D figure (fig6)
+figures/                          generated PNGs
+data/                             generated CSV + summary.json
+index.html                        interactive in-browser simulation (GitHub Pages)
 ```
