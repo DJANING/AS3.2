@@ -52,41 +52,47 @@ def main():
     print(f"  residence mean = {1e3*r.residence_times.mean():.0f} ms "
           f"(censored; -> 40 ms for long runs)")
 
-    ss_all = r.step_size_distribution() * 1e3
-    ss_hop = r.step_size_distribution(hops_only=True) * 1e3
+    ss_full = r.step_size_distribution(hops_only=True) * 1e3
+    ss_tirf = r.step_size_distribution(hops_only=True,
+                                       tirf_depth=p.tirf_depth) * 1e3
     sp = p.mt_spacing * 1e3
+    y_glass = float(np.nanmin(p.mt_xy[:, 1]) - p.R_mt) * 1e3   # nm
 
     fig, ax = plt.subplots(1, 2, figsize=(11.5, 4.6))
 
-    # ---- (left) bundle cross-section ----------------------------------------
+    # ---- (left) bundle cross-section + the TIRF slice that is imaged ---------
     ax[0].add_patch(Circle((0, 0), p.R_tube * 1e3, fill=False,
                            color="gray", lw=1.5, ls="--"))
+    band_lo, band_hi = y_glass, y_glass + p.tirf_depth * 1e3
+    ax[0].axhspan(band_lo, band_hi, color=ORANGE, alpha=0.15)
+    ax[0].axhline(y_glass, color="black", lw=2)                # coverslip
+    ax[0].text(-p.R_tube*1e3, band_hi + 8, f"TIRF slice ~{p.tirf_depth*1e3:.0f} nm",
+               color=ORANGE, fontsize=8)
     for (cx, cy) in p.mt_xy * 1e3:
-        ax[0].add_patch(Circle((cx, cy), p.R_mt * 1e3, color=BLUE, alpha=0.8))
+        seen = (cy - y_glass) <= p.tirf_depth * 1e3
+        ax[0].add_patch(Circle((cx, cy), p.R_mt * 1e3,
+                               color=ORANGE if seen else BLUE, alpha=0.85))
     ax[0].set_xlim(-p.R_tube * 1e3 * 1.05, p.R_tube * 1e3 * 1.05)
     ax[0].set_ylim(-p.R_tube * 1e3 * 1.05, p.R_tube * 1e3 * 1.05)
     ax[0].set_aspect("equal")
     ax[0].set_xlabel("x (nm)"); ax[0].set_ylabel("y / depth (nm)")
-    ax[0].set_title(f"{p.n_mt} MTs, {sp:.0f} nm spacing, R$_{{tube}}$ = "
-                    f"{p.R_tube*1e3:.0f} nm")
+    ax[0].set_title(f"{p.n_mt} MTs, {sp:.0f} nm spacing; orange = TIRF-visible")
 
-    # ---- (right) step-size distribution -------------------------------------
-    bins = np.linspace(0, 360, 100)
-    ax[1].hist(ss_all, bins=bins, density=True, color=BLUE, alpha=0.45,
-               label="all localisations")
-    ax[1].hist(ss_hop, bins=bins, density=True, color=ORANGE, alpha=0.7,
-               label="inter-MT hops only")
+    # ---- (right) SSD: full depth vs the thin TIRF slice ---------------------
+    bins = np.linspace(0, 320, 90)
+    ax[1].hist(ss_full, bins=bins, density=True, color=BLUE, alpha=0.5,
+               label="full 3D depth (smeared)")
+    ax[1].hist(ss_tirf, bins=bins, density=True, color=ORANGE, alpha=0.7,
+               label=f"TIRF slice (~{p.tirf_depth*1e3:.0f} nm)")
     for k, pk in enumerate(PAPER_PEAKS_NM):
-        ax[1].axvline(pk, color=RED, ls="--", alpha=0.7,
+        ax[1].axvline(pk, color=RED, ls="--", alpha=0.6,
                       label="paper Fig. 3A peaks" if k == 0 else None)
-    for k in (1, 2, 3, 4):
-        ax[1].axvline(k * sp, color=GREEN, ls=":", alpha=0.6,
-                      label=f"n x {sp:.0f} nm (input spacing)" if k == 1 else None)
     ax[1].set_yscale("log"); ax[1].set_ylim(1e-4, 0.05)
     ax[1].set_xlabel("step size in $\\Delta t$ = 5 ms (nm)")
     ax[1].set_ylabel("probability density")
-    ax[1].set_title(f"Exact-3D SSD at k*on/koff = {r.kon_koff:.0f}")
+    ax[1].set_title(f"SSD: TIRF restricts depth (k*on/koff = {r.kon_koff:.0f})")
     ax[1].legend(fontsize=8)
+    ss_hop = ss_full
 
     fig.tight_layout()
     fig.savefig(os.path.join(FIGDIR, "fig6_exact_3d.png"))

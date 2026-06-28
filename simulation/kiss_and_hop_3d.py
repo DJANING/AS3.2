@@ -79,6 +79,7 @@ class Params3D:
     # imaging
     frame_interval: float = 0.005  # s   camera frame (5 ms)
     loc_precision: float = 0.020   # um  localisation precision (20 nm)
+    tirf_depth: float = 0.150      # um  TIRF evanescent penetration depth (~150 nm)
 
     # integration
     dt: float = 1.0e-6             # s   time step (paper: 1 us)
@@ -137,27 +138,43 @@ def _nearest_hex(x, y, spacing, qr_set, mt_xy):
 class Result3D:
     params: Params3D
     frames_x: np.ndarray           # (n_part, n_frames) projected x, NaN if free
+    frames_y: np.ndarray           # (n_part, n_frames) depth (optical axis)
     frames_z: np.ndarray           # (n_part, n_frames) projected z, NaN if free
     bound_fraction: float
     residence_times: np.ndarray    # s
     kon_koff: float
 
-    def step_size_distribution(self, rng=None, hops_only=False):
+    def step_size_distribution(self, rng=None, hops_only=False, tirf_depth=None):
         """First-step SSD from the projected (x, z) localisations of bound tau,
-        with Gaussian localisation noise. Returns step sizes in micrometres."""
+        with Gaussian localisation noise. Returns step sizes in micrometres.
+
+        If `tirf_depth` (um) is given, only localisations within that distance of
+        the coverslip (the bottom of the MT bundle) are kept -- i.e. the thin
+        evanescent slice that TIRF actually illuminates. This collapses the 3D
+        bundle to a quasi-2D sheet and sharpens the hop peaks, exactly as in the
+        experiment.
+        """
         p = self.params
         rng = rng or np.random.default_rng(7)
-        x = self.frames_x + rng.normal(0, p.loc_precision, self.frames_x.shape)
-        z = self.frames_z + rng.normal(0, p.loc_precision, self.frames_z.shape)
+        x = self.frames_x.copy()
+        z = self.frames_z.copy()
+        if tirf_depth is not None:
+            # coverslip at the bottom of the bundle; keep only the illuminated slice
+            y_glass = np.nanmin(p.mt_xy[:, 1]) - p.R_mt
+            visible = (self.frames_y - y_glass) <= tirf_depth
+            x = np.where(visible, x, np.nan)
+            z = np.where(visible, z, np.nan)
+        xf_clean, zf_clean = x.copy(), z.copy()
+        x = x + rng.normal(0, p.loc_precision, x.shape)
+        z = z + rng.normal(0, p.loc_precision, z.shape)
         dx = x[:, 1:] - x[:, :-1]
         dz = z[:, 1:] - z[:, :-1]
         step = np.sqrt(dx * dx + dz * dz)
-        ok = np.isfinite(step)               # both endpoints were bound
+        ok = np.isfinite(step)               # both endpoints bound (and visible)
         if hops_only:
             # genuine inter-MT hop: nearest noise-free MT changed
-            xf, zf = self.frames_x, self.frames_z
-            same = (np.abs(xf[:, 1:] - xf[:, :-1]) < 1e-6) & \
-                   (np.abs(zf[:, 1:] - zf[:, :-1]) < 1e-6)
+            same = (np.abs(xf_clean[:, 1:] - xf_clean[:, :-1]) < 1e-6) & \
+                   (np.abs(zf_clean[:, 1:] - zf_clean[:, :-1]) < 1e-6)
             ok = ok & ~same
         return step[ok].ravel()
 
@@ -187,6 +204,7 @@ def simulate3d(params: Params3D | None = None, **overrides) -> Result3D:
     fstride = max(1, int(round(p.frame_interval / dt)))
     n_frames = steps // fstride + 1
     fx = np.full((n, n_frames), np.nan, dtype=np.float32)
+    fy = np.full((n, n_frames), np.nan, dtype=np.float32)
     fz = np.full((n, n_frames), np.nan, dtype=np.float32)
     fptr = 0
 
@@ -258,6 +276,7 @@ def simulate3d(params: Params3D | None = None, **overrides) -> Result3D:
         # ---------------- record frame --------------------------------------
         if s % fstride == 0:
             fx[bound, fptr] = x[bound]
+            fy[bound, fptr] = y[bound]
             fz[bound, fptr] = z[bound]
             fptr += 1
         if s >= burn:
@@ -269,6 +288,7 @@ def simulate3d(params: Params3D | None = None, **overrides) -> Result3D:
     return Result3D(
         params=p,
         frames_x=fx[:, :fptr],
+        frames_y=fy[:, :fptr],
         frames_z=fz[:, :fptr],
         bound_fraction=float(fb),
         residence_times=res,

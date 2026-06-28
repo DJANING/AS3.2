@@ -123,16 +123,28 @@ as in the experiment.
 
 **Honest result.** The projected SSD is **multi-modal**: a localisation-noise
 peak, then an inter-MT **hop** population whose tail extends through multiples of
-the spacing out to the reported 95 / 190 / 285 nm. It does **not** show the
-cleanly *separated* peaks of the published Fig. 3A, because projecting a 3D hex
-bundle onto 2D smears neighbouring-shell distances together (and produces the
-extra short-distance peak the paper itself notes, from MTs that neighbour in
-projection but are distant in depth). The paper states only that the simulation
-*"resembles"* the data at k\*on/koff = 100; the cleaner experimental peaks
-reflect the specific, more ordered real bundle (≈95 nm spacing in that cell). The
-single-exponential ~40 ms dwell, the ~99 % bound fraction and k\*on/koff ≈ 100
-are all reproduced exactly. The idealised 2D SSD (`fig3`) is kept as the didactic
-version where the hop peaks sit cleanly at multiples of the spacing.
+the spacing out to the reported 95 / 190 / 285 nm. With the full 3D depth it does
+**not** show the cleanly *separated* peaks of the published Fig. 3A, because
+projecting a 3D hex bundle onto 2D smears neighbouring-shell distances together
+(and produces the extra short-distance peak the paper itself notes, from MTs that
+neighbour in projection but are distant in depth).
+
+**Why the experiment resolves the peaks better — TIRF.** The imaging was done by
+**TIRF** microscopy, whose evanescent field only illuminates a thin slice
+(~100–150 nm) just above the coverslip. The experiment therefore sees a
+quasi-2D sheet of MTs, not the whole 3D bundle, which removes much of the
+depth-projection smearing. `fig6` shows this directly: restricting the simulated
+localisations to a 150 nm TIRF slice (right panel, orange) trims the long
+cross-bundle tail relative to the full-depth SSD (blue). In the model the effect
+is only *partial* (a 150 nm slice still spans ~3 hexagonal rows, and the residual
+blur from the 20 nm localisation precision and the longitudinal motion during a
+hop remains), so it sharpens rather than fully separates the peaks. The cleaner
+published peaks reflect TIRF **plus** the specific, more ordered real bundle
+(≈95 nm spacing in that cell) and the trajectory pre-processing.
+
+The single-exponential ~40 ms dwell, the ~99 % bound fraction and
+k\*on/koff ≈ 100 are reproduced exactly. The idealised 2D SSD (`fig3`) is kept as
+the didactic version where the hop peaks sit cleanly at multiples of the spacing.
 
 ---
 
